@@ -1,0 +1,7 @@
+# Optional fast sampling kernels.
+#
+# On RTX PRO 6000 Blackwell + torch 2.8.0/cu129, sgl-kernel==0.3.21 may fail
+# at import time with an undefined PyTorch C++ symbol. The v5 sampler has a
+# PyTorch fallback, so this package is not required for greedy WikiTableQuestions
+# evaluation.
+sgl-kernel==0.3.21

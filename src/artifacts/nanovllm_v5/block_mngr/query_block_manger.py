@@ -1,8 +1,8 @@
 from collections import deque
-import xxhash
-import numpy as np
+from typing import TYPE_CHECKING
 
-from src.services.nanovllm_v5.engine.sequence import Sequence
+if TYPE_CHECKING:
+    from src.services.nanovllm_v5.engine.sequence import Sequence
 
 class QueryBlock:
     def __init__(self, block_id, block_size):
@@ -51,24 +51,23 @@ class QueryBlockManager:
     def can_allocate(self) -> bool:
         return len(self.free_block_ids) >= 1
 
-    def allocate(self, seq: Sequence):
+    def allocate(self, seq: "Sequence"):
         assert not seq.query_block_id >= 0
-        token_ids = seq.block(-1)
+        token_ids = seq.token_ids[-seq.query_window_size:]
         block_id = self.free_block_ids[0]
         block = self._allocate_block(block_id)
         block.initialize(token_ids)
         seq.query_block_id = block_id
         seq.last_query_window_index = block.last_token_index
 
-    def deallocate(self, seq: Sequence):
+    def deallocate(self, seq: "Sequence"):
         self._deallocate_block(seq.query_block_id)
         seq.query_block_id = -1
 
-    def can_append(self, seq: Sequence) -> bool:
+    def can_append(self, seq: "Sequence") -> bool:
         return len(self.free_block_ids) >= (len(seq) % self.block_size == 1)
 
-    def may_append(self, seq: Sequence):
+    def may_append(self, seq: "Sequence"):
         block = self.blocks[seq.query_block_id]
         block.update(seq.last_token)
         seq.last_query_window_index = block.last_token_index
-        

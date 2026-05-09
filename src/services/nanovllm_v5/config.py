@@ -18,6 +18,7 @@ class Config:
     kvcache_block_size: int = 1
     query_window_size: int = 64
     layer_budget: int = 320
+    cache_compressor: str = "none"
     num_kvcache_blocks: int = -1
 
     steps_between_cache_compressions: int = 1

@@ -1,0 +1,56 @@
+model:
+  # Local Qwen model directory. The v5 Config expects this path to exist.
+  path: /data/pretrain_models/Qwen3-8B
+  tensor_parallel_size: 2
+  enforce_eager: false
+  # 32B single-GPU runs need a tighter concurrency budget than v5 defaults.
+  # Keep this aligned with generation.batch_size unless you intentionally batch.
+  max_num_seqs: 1
+  max_model_len: 32768
+  max_num_batched_tokens: 32768
+  gpu_memory_utilization: 0.90
+  kvcache_block_size: 1
+  query_window_size: 64
+  # none = full KV cache baseline. Use sliding/snapkv/rkv for compression experiments.
+  cache_compressor: sliding
+  # For sliding, layer_budget is exactly the number of most recent KV tokens kept.
+  # For SnapKV/RKV, layer_budget is total kept tokens, including query_window_size recent tokens.
+  layer_budget: 128
+  steps_between_cache_compressions: 1
+
+dataset:
+  name: stanfordnlp/wikitablequestions
+  config: random-split-1
+  split: validation
+  revision: 20a01e1d62a85afcfd00e6112ce158d6e93e2f04
+  cache_dir:
+  # If set, test_wiki.py reads this JSONL instead of downloading from HF.
+  data_file: datasets/wikitablequestions/random-split-1_validation.jsonl
+  # Set to a small integer for smoke tests; null means all records.
+  limit: 200
+
+preprocess:
+  output_dir: datasets/wikitablequestions
+  # Optional per-split limit for preprocessing.
+  limit:
+
+generation:
+  batch_size: 1
+  max_tokens: 32
+  # The sampler treats negative temperature as greedy decoding.
+  temperature: -1.0
+  top_k: 1
+  top_p: 1.0
+  min_p: 0.0
+  ignore_eos: false
+
+prompt:
+  # 0 means full table.
+  max_table_rows: 0
+
+logging:
+  output_dir: logs/wiki_eval
+  # Leave empty to auto-generate from model.path and dataset.split, e.g.
+  # qwen3_8b_wtq_validation or qwen3_32b_wtq_validation.
+  run_name:
+  use_tqdm: true

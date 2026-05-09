@@ -21,6 +21,7 @@ from src.artifacts.nanovllm_v5.cache_mngr.layerwise import CacheManager
 
 from src.artifacts.nanovllm_v5.cache_mngr.snapKV import SnapKV
 from src.artifacts.nanovllm_v5.cache_mngr.RKV import RKV
+from src.artifacts.nanovllm_v5.cache_mngr.sliding import SlidingWindowKV
 
 from src.services.nanovllm_v5.model_runner.models.qwen3 import Qwen3AttentionArtifacts
 
@@ -31,6 +32,20 @@ class RunningStage(Enum):
     INFERENCE = 2
 
 stage = RunningStage.WARMUP
+
+
+def build_compressor(config: Config):
+    compressor_name = config.cache_compressor.lower()
+    if compressor_name in ("", "none", "full", "full_kv"):
+        return None
+    if compressor_name == "snapkv":
+        return SnapKV(window_size=config.query_window_size, budget=config.layer_budget)
+    if compressor_name == "rkv":
+        return RKV(window_size=config.query_window_size, budget=config.layer_budget)
+    if compressor_name in ("sliding", "sliding_window"):
+        return SlidingWindowKV(budget=config.layer_budget)
+    raise ValueError(f"Unknown cache_compressor: {config.cache_compressor}")
+
 
 class ModelRunner(BaseService):
     @property
@@ -60,7 +75,7 @@ class ModelRunner(BaseService):
         self.model = Qwen3ForCausalLM(self.attention_backend, hf_config)
         load_model(self.model, config.model)
         
-        self.compressor = SnapKV(window_size=config.query_window_size, budget=config.layer_budget)
+        self.compressor = build_compressor(config)
         
         self.cache_mngr = CacheManager(self.attention_backend, config, self.compressor)
         self.cache_mngr._register_method("prepare_indices_flashinfer", self)
@@ -132,9 +147,32 @@ class ModelRunner(BaseService):
         return method(*args)
 
     def compress(self):
+        if self.cache_mngr.compressor is None:
+            return
+        assert len(self.cache_mngr.cu_seqs) == 1, "Currently only support single request"
+        seq = self.cache_mngr.cu_seqs[0]
+        original_block_table = list(seq.block_table)
+        compressed_len = None
         for module in self.model.modules():
             if hasattr(module, "k_cache") and hasattr(module, "v_cache") and hasattr(module, "q_cache"):
-                self.cache_mngr.read_and_store_cache(module.q_cache, module.k_cache, module.v_cache)
+                layer_len = self.cache_mngr.read_and_store_cache(
+                    module.q_cache,
+                    module.k_cache,
+                    module.v_cache,
+                    original_block_table,
+                )
+                if compressed_len is None:
+                    compressed_len = layer_len
+                else:
+                    assert compressed_len == layer_len
+
+        if compressed_len is None:
+            return
+        evicted_block_ids = original_block_table[compressed_len:]
+        seq.block_table = original_block_table[:compressed_len]
+        if self.rank == 0:
+            for block_id in evicted_block_ids:
+                self.cache_mngr._deallocate_block(block_id)
 
     def warmup_model(self):
         torch.cuda.empty_cache()
@@ -159,7 +197,20 @@ class ModelRunner(BaseService):
         num_kv_heads = hf_config.num_key_value_heads // self.world_size
         block_bytes = 2 * hf_config.num_hidden_layers * self.block_size * num_kv_heads * hf_config.head_dim * hf_config.torch_dtype.itemsize
         config.num_kvcache_blocks = int(total * config.gpu_memory_utilization - used - peak + current) // block_bytes
-        assert config.num_kvcache_blocks > 0
+        if config.num_kvcache_blocks <= 0:
+            budget_gb = total * config.gpu_memory_utilization / (1024**3)
+            used_gb = used / (1024**3)
+            peak_gb = peak / (1024**3)
+            current_gb = current / (1024**3)
+            block_mb = block_bytes / (1024**2)
+            raise ValueError(
+                "Not enough GPU memory left for KV cache. "
+                f"gpu_memory_utilization budget={budget_gb:.2f} GiB, "
+                f"used={used_gb:.2f} GiB, peak={peak_gb:.2f} GiB, "
+                f"current={current_gb:.2f} GiB, block={block_mb:.2f} MiB. "
+                "For 32B single-GPU evaluation, increase model.gpu_memory_utilization "
+                "or reduce model.max_num_seqs/model.max_model_len in eval/config_eval.yaml."
+            )
         self.kv_cache = torch.zeros(2, hf_config.num_hidden_layers, config.num_kvcache_blocks, self.block_size, num_kv_heads, hf_config.head_dim)
 
         layer_id = 0

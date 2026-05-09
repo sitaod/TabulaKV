@@ -56,14 +56,25 @@ class LLMEngine:
     def add_request(self, prompt: str | list[int], sampling_params: SamplingParams):
         if isinstance(prompt, str):
             prompt = self.tokenizer.encode(prompt)
-        seq = Sequence.from_prompt(prompt, sampling_params, self.config.kvcache_block_size)
+        seq = Sequence.from_prompt(
+            prompt,
+            sampling_params,
+            self.config.kvcache_block_size,
+            self.config.query_window_size,
+        )
         self.scheduler.add(seq)
 
     def step(self):
         seqs, is_prefill = self.scheduler.schedule()
         token_ids = self.model_runner.call("run", seqs, is_prefill)
-        # if self.cur_step % self.config.steps_between_cache_compressions == 0:
-        #     self.model_runner.call("compress")
+        cache_compressor = self.config.cache_compressor.lower()
+        if (
+            cache_compressor not in ("", "none", "full", "full_kv")
+            and not is_prefill
+            and self.cur_step % self.config.steps_between_cache_compressions == 0
+        ):
+            self.model_runner.call("compress")
+        self.cur_step += 1
         self.scheduler.postprocess(seqs, token_ids)
         outputs = [(seq.seq_id, seq.completion_token_ids) for seq in seqs if seq.is_finished]
         num_tokens = sum(len(seq) for seq in seqs) if is_prefill else -len(seqs)

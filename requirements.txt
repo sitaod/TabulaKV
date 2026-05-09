@@ -1,0 +1,44 @@
+# Target local environment observed for this repo:
+# - OS/arch: Ubuntu 22.04, x86_64
+# - Python: 3.10.20 in conda env `tabulakv`
+# - GPU: 6x NVIDIA RTX PRO 6000 Blackwell, 96GB each
+# - NVIDIA driver: 575.57.08
+# - CUDA runtime/toolkit: 12.9 / 12.9.86
+#
+# PyTorch's official CUDA 12.9 wheel line is torch 2.8.0 on cu129.
+--extra-index-url https://download.pytorch.org/whl/cu129
+
+# Core GPU runtime. Install flash-attn after this file with
+# `pip install -r requirements-flash-attn.txt --no-build-isolation` because
+# flash-attn imports torch during setup.
+torch==2.8.0
+triton==3.4.0
+flashinfer-python==0.6.7
+
+# Native extension build helpers used by flash-attn and related CUDA packages.
+packaging==25.0
+ninja==1.13.0
+wheel==0.45.1
+setuptools==80.9.0
+
+# Model and tensor utilities
+transformers==4.57.0
+safetensors==0.6.2
+einops==0.8.1
+numpy==2.2.6
+
+# Dataset and evaluation utilities
+datasets==4.8.5
+# transformers 4.57.0 requires huggingface-hub>=0.34.0,<1.0.
+huggingface-hub==0.35.3
+pyarrow==24.0.0
+pandas==2.3.3
+httpx[socks]==0.28.1
+requests==2.33.1
+tqdm==4.67.3
+PyYAML==6.0.3
+
+# Project utilities
+xxhash==3.7.0
+psutil==7.1.3
+pyzmq==27.1.0

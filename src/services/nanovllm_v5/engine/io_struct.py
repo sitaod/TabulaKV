@@ -14,7 +14,7 @@ class SamplingInfo:
 
     @property
     def is_greedy_sampling(self):
-        return torch.any(self.temperatures < 0)
+        return torch.all(self.temperatures < 0)
     
     @property
     def need_min_p_sampling(self):

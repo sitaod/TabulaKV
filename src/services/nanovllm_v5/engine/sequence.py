@@ -20,6 +20,7 @@ class Sequence:
     def __init__(self):
         self.block_table: list[int] = []
         self.query_block_id: int = -1
+        self.last_query_window_index: int = -1
         self.num_tokens: int = 0
         self.num_prompt_tokens: int = 0
         self.num_cached_tokens: int = 0
@@ -105,12 +106,40 @@ class Sequence:
         self.num_tokens += 1
 
     def __getstate__(self):
-        return (self.num_tokens, self.num_prompt_tokens, self.num_cached_tokens, self.block_table,
-                self.token_ids if self.num_completion_tokens == 0 else self.last_token)
+        return {
+            "seq_id": self.seq_id,
+            "num_tokens": self.num_tokens,
+            "num_prompt_tokens": self.num_prompt_tokens,
+            "num_cached_tokens": self.num_cached_tokens,
+            "block_table": self.block_table,
+            "block_size": self.block_size,
+            "query_window_size": self.query_window_size,
+            "query_block_id": self.query_block_id,
+            "last_query_window_index": self.last_query_window_index,
+            "token_state": self.token_ids if self.num_completion_tokens == 0 else self.last_token,
+        }
 
     def __setstate__(self, state):
-        self.num_tokens, self.num_prompt_tokens, self.num_cached_tokens, self.block_table = state[:-1]
-        if self.num_completion_tokens == 0:
-            self.token_ids = state[-1]
+        if not isinstance(state, dict):
+            self.num_tokens, self.num_prompt_tokens, self.num_cached_tokens, self.block_table = state[:-1]
+            self.block_size = Sequence.block_size
+            self.query_window_size = Sequence.query_window_size
+            self.query_block_id = -1
+            self.last_query_window_index = -1
+            token_state = state[-1]
         else:
-            self.last_token = state[-1]
+            self.seq_id = state["seq_id"]
+            self.num_tokens = state["num_tokens"]
+            self.num_prompt_tokens = state["num_prompt_tokens"]
+            self.num_cached_tokens = state["num_cached_tokens"]
+            self.block_table = state["block_table"]
+            self.block_size = state["block_size"]
+            self.query_window_size = state["query_window_size"]
+            self.query_block_id = state["query_block_id"]
+            self.last_query_window_index = state["last_query_window_index"]
+            token_state = state["token_state"]
+        if self.num_completion_tokens == 0:
+            self.token_ids = token_state
+            self.last_token = self.token_ids[-1]
+        else:
+            self.last_token = token_state

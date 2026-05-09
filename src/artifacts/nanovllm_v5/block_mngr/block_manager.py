@@ -1,10 +1,10 @@
 # This version of block manager does not implement with prefix caching
 # only support block_size == 1 in this version as well
 from collections import deque
-import xxhash
-import numpy as np
+from typing import TYPE_CHECKING
 
-from src.services.nanovllm_v5.engine.sequence import Sequence
+if TYPE_CHECKING:
+    from src.services.nanovllm_v5.engine.sequence import Sequence
 
 from src.core.service_base import BaseService
 
@@ -14,7 +14,7 @@ class Block:
         self.block_id = block_id
         self.token_ids = []
 
-    def update(self, hash: int, token_ids: list[int]):
+    def update(self, token_ids: list[int]):
         self.token_ids = token_ids
 
     def reset(self):
@@ -45,10 +45,10 @@ class BlockManager(BaseService):
         self.used_block_ids.remove(block_id)
         self.free_block_ids.append(block_id)
 
-    def can_allocate(self, seq: Sequence) -> bool:
+    def can_allocate(self, seq: "Sequence") -> bool:
         return len(self.free_block_ids) >= seq.num_blocks
 
-    def allocate(self, seq: Sequence):
+    def allocate(self, seq: "Sequence"):
         assert not seq.block_table
         for i in range(seq.num_blocks):
             token_ids = seq.block(i)
@@ -58,19 +58,19 @@ class BlockManager(BaseService):
             block.update(token_ids)
             seq.block_table.append(block_id)
 
-    def deallocate(self, seq: Sequence):
+    def deallocate(self, seq: "Sequence"):
         for block_id in reversed(seq.block_table):
             self._deallocate_block(block_id)
         seq.block_table.clear()
 
-    def can_append(self, seq: Sequence) -> bool:
+    def can_append(self, seq: "Sequence") -> bool:
         return len(self.free_block_ids) >= (len(seq) % self.block_size == 1)
 
-    def may_append(self, seq: Sequence):
+    def may_append(self, seq: "Sequence"):
         block_table = seq.block_table
         # print([self.blocks[index].hash for index in block_table])
         # NOTE when the block == 1, the handling logic is different 
         assert self.block_size == 1
         block_id = self.free_block_ids[0]
         self._allocate_block(block_id)
-        block_table.append(block_id)            
+        block_table.append(block_id)

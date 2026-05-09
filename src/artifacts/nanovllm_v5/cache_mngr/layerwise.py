@@ -77,17 +77,17 @@ class CacheManager(BaseService):
             self.page_indices, 
         )
         
-    def read_and_store_cache(self, q_cache, k_cache, v_cache):
+    def read_and_store_cache(self, q_cache, k_cache, v_cache, slot_mappings=None):
         """
         option 1: per-sequence handling
 
         option 2: like flashinfer's layout, handling with packed indices,
         """
-        slot_mappings = []
-        for seq in self.cu_seqs:
-            slot_mappings.extend(seq.block_table)
-
         assert len(self.cu_seqs) == 1, "Currently only support single request"
+        if slot_mappings is None:
+            slot_mappings = []
+            for seq in self.cu_seqs:
+                slot_mappings.extend(seq.block_table)
 
         slot_mappings_tensor = torch.tensor(slot_mappings, device="cuda").to(
             torch.int32
@@ -123,11 +123,8 @@ class CacheManager(BaseService):
         value = updated_v.transpose(1, 2).squeeze(0).contiguous()
 
         # for single request only
-        slot_mappings_list = slot_mappings_tensor.tolist()
         slot_mappings_tensor = slot_mappings_tensor[: key.shape[0]]
 
-        self.cu_seqs[0].block_table = slot_mappings_list[: key.shape[0]]
-    
         store_kvcache(
             key=key,
             value=value,
@@ -135,3 +132,4 @@ class CacheManager(BaseService):
             v_cache=v_cache,
             slot_mapping=slot_mappings_tensor,
         )
+        return key.shape[0]

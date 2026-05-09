@@ -1,0 +1,4 @@
+# Install this only after `pip install -r requirements.txt`.
+# flash-attn's setup imports torch, so use:
+#   pip install -r requirements-flash-attn.txt --no-build-isolation
+flash-attn==2.8.3
