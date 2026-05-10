@@ -42,6 +42,8 @@ self.cache_mngr = CacheManager(self.attention_backend, config, self.compressor)
 - `snapkv` / `rkv`: `layer_budget` 是最终保留的总 KV token 数，其中最近 `query_window_size` 个 token 必保留，剩余 `layer_budget - query_window_size` 个 token 从历史 KV 中按算法选择。
 - `none`: 不调用压缩，`layer_budget` 不影响 KV 保留长度。
 
+RKV 的 similarity 计算需要额外临时显存，建议优先使用 `enforce_eager: true` 并降低 `gpu_memory_utilization`，给压缩计算留出余量。
+
 ## CacheManager 方法
 
 `prepare_indices_flashinfer(seqs)`  

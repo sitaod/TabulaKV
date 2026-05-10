@@ -43,51 +43,38 @@ def cal_similarity(
 ):
     k = key_states[0]
     num_heads = k.shape[0]
-
-    k_norm = k / (k.norm(dim=-1, keepdim=True) + 1e-8)
-    similarity_cos = torch.matmul(k_norm, k_norm.transpose(-1, -2))
+    seq_len = k.shape[-2]
+    k = int(seq_len * retain_ratio)
+    similarity_scores = []
 
     for h in range(num_heads):
-        similarity_cos[h].fill_diagonal_(0.0)
+        k_norm = key_states[0, h] / (key_states[0, h].norm(dim=-1, keepdim=True) + 1e-8)
+        similarity_cos = torch.matmul(k_norm, k_norm.transpose(-1, -2))
+        similarity_cos.fill_diagonal_(0.0)
 
-    # shape: [num_heads, seq_len, seq_len]
-    similarity_mask = similarity_cos > threshold
+        similarity_mask = similarity_cos > threshold
+        indices = torch.where(
+            similarity_mask,
+            torch.arange(seq_len, device=similarity_mask.device),
+            torch.zeros_like(similarity_mask, dtype=torch.long),
+        )
 
-    seq_len = similarity_mask.size(-1)
-    k = int(seq_len * retain_ratio)
+        if retain_direction == "last":
+            similarity_retain = torch.max(indices, dim=-1)[0]
+        elif retain_direction == "first":
+            similarity_retain = torch.min(indices, dim=-1)[0]
+        elif retain_direction == "last_percent":
+            similarity_retain = torch.topk(indices, k=k, dim=-1)[0][:, 0]
+        elif retain_direction == "first_percent":
+            similarity_retain = torch.topk(indices, k=k, dim=-1, largest=False)[0][:, -1]
+        else:
+            raise ValueError("retain_direction is not supported")
 
-    indices = torch.where(
-        similarity_mask,
-        torch.arange(similarity_mask.size(-1), device=similarity_mask.device),
-        torch.zeros_like(similarity_mask, dtype=torch.long),
-    )
+        seq_idx = torch.arange(seq_len, device=similarity_cos.device)
+        similarity_cos[seq_idx, similarity_retain] = 0
+        similarity_scores.append(similarity_cos.mean(dim=0).softmax(dim=-1))
 
-    # find the last True index in each row
-    if retain_direction == "last":
-        similarity_retain = torch.max(indices, dim=-1)[0]
-
-    # find the first True index in each row
-    elif retain_direction == "first":
-        similarity_retain = torch.min(indices, dim=-1)[0]
-
-    # keep the last_percent% elements
-    elif retain_direction == "last_percent":
-        similarity_retain = torch.topk(indices, k=k, dim=-1)[0][:, :, 0]
-
-    # keep the first_percent% elements
-    elif retain_direction == "first_percent":
-        similarity_retain = torch.topk(indices, k=k, dim=-1, largest=False)[0][:, :, -1]
-
-    # create indices for zeroing
-    batch_idx = (
-        torch.arange(num_heads).unsqueeze(1).repeat(1, similarity_retain.size(1))
-    )
-    seq_idx = torch.arange(similarity_retain.size(1)).unsqueeze(0).repeat(num_heads, 1)
-
-    # zero the specified positions in similarity_cos
-    similarity_cos[batch_idx, seq_idx, similarity_retain] = 0
-
-    return similarity_cos.mean(dim=1).softmax(dim=-1)
+    return torch.stack(similarity_scores, dim=0)
 
 
 def merge_kv(key_states, value_states, indices, window_size, merge):

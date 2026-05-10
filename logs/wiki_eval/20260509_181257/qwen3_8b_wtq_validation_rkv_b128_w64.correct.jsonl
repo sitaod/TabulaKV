@@ -1,0 +1,42 @@
+{"index": 0, "id": "nt-2", "split": "validation", "correct": false, "prediction": "Wolftones", "answers": ["Wolfe Tones"]}
+{"index": 1, "id": "nt-3", "split": "validation", "correct": false, "prediction": "2,000", "answers": ["12,467"]}
+{"index": 2, "id": "nt-8", "split": "validation", "correct": true, "prediction": "32", "answers": ["32"]}
+{"index": 3, "id": "nt-9", "split": "validation", "correct": false, "prediction": "Ardo Kreek is a Middle blocker, so the players who played the same position are Ardo Kreek, Anri Ardo Kreek, and An", "answers": ["Siim Ennemuist", "Andri Aganits"]}
+{"index": 4, "id": "nt-14", "split": "validation", "correct": true, "prediction": "Kim Yu-na", "answers": ["Kim Yu-na"]}
+{"index": 5, "id": "nt-15", "split": "validation", "correct": true, "prediction": "New Delhi, India", "answers": ["New Delhi, India"]}
+{"index": 6, "id": "nt-24", "split": "validation", "correct": true, "prediction": "Sweden", "answers": ["Sweden"]}
+{"index": 7, "id": "nt-29", "split": "validation", "correct": true, "prediction": "1694", "answers": ["1694"]}
+{"index": 8, "id": "nt-34", "split": "validation", "correct": false, "prediction": "1", "answers": ["Iryna Shpylova"]}
+{"index": 9, "id": "nt-40", "split": "validation", "correct": true, "prediction": "2", "answers": ["2"]}
+{"index": 10, "id": "nt-46", "split": "validation", "correct": true, "prediction": "10", "answers": ["10"]}
+{"index": 11, "id": "nt-53", "split": "validation", "correct": false, "prediction": "30", "answers": ["17"]}
+{"index": 12, "id": "nt-64", "split": "validation", "correct": true, "prediction": "22", "answers": ["22"]}
+{"index": 13, "id": "nt-67", "split": "validation", "correct": false, "prediction": "8", "answers": ["9"]}
+{"index": 14, "id": "nt-68", "split": "validation", "correct": true, "prediction": "Antelope", "answers": ["Antelope"]}
+{"index": 15, "id": "nt-69", "split": "validation", "correct": false, "prediction": "1968", "answers": ["1964"]}
+{"index": 16, "id": "nt-84", "split": "validation", "correct": false, "prediction": "2006", "answers": ["2005"]}
+{"index": 17, "id": "nt-87", "split": "validation", "correct": true, "prediction": "David Davie Shelby", "answers": ["David Davie Shelby"]}
+{"index": 18, "id": "nt-92", "split": "validation", "correct": false, "prediction": "1. Jaafar Jaafar", "answers": ["Jaafar Mohamed"]}
+{"index": 19, "id": "nt-94", "split": "validation", "correct": false, "prediction": "16", "answers": ["Hardcore TV #21"]}
+{"index": 20, "id": "nt-104", "split": "validation", "correct": true, "prediction": "Pete Doherty", "answers": ["Pete Doherty"]}
+{"index": 21, "id": "nt-107", "split": "validation", "correct": false, "prediction": "1", "answers": ["Nicky English"]}
+{"index": 22, "id": "nt-111", "split": "validation", "correct": false, "prediction": "13 years", "answers": ["33 years"]}
+{"index": 23, "id": "nt-116", "split": "validation", "correct": false, "prediction": "24-12=12", "answers": ["20"]}
+{"index": 24, "id": "nt-124", "split": "validation", "correct": false, "prediction": "3", "answers": ["2"]}
+{"index": 25, "id": "nt-125", "split": "validation", "correct": false, "prediction": "3S, 3S", "answers": ["Mittersill goods aerial tramway", "Singapore cable car"]}
+{"index": 26, "id": "nt-130", "split": "validation", "correct": true, "prediction": "ballet", "answers": ["ballet"]}
+{"index": 27, "id": "nt-132", "split": "validation", "correct": false, "prediction": "1967-1937=30", "answers": ["47"]}
+{"index": 28, "id": "nt-148", "split": "validation", "correct": false, "prediction": "George Barron", "answers": ["Karen Olsson"]}
+{"index": 29, "id": "nt-152", "split": "validation", "correct": false, "prediction": "120gb", "answers": ["64GB SSD"]}
+{"index": 30, "id": "nt-158", "split": "validation", "correct": false, "prediction": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1", "answers": ["Mount Whitney"]}
+{"index": 31, "id": "nt-159", "split": "validation", "correct": false, "prediction": "11", "answers": ["10"]}
+{"index": 32, "id": "nt-160", "split": "validation", "correct": true, "prediction": "10", "answers": ["10"]}
+{"index": 33, "id": "nt-169", "split": "validation", "correct": false, "prediction": "Royal Belfast Academical Institution, Methodist College Belfast, Campbell College, Royal Belfast Academical Institution, Campbell College, Methodist College Belfast", "answers": ["Royal Belfast Academical Institution", "Campbell College"]}
+{"index": 34, "id": "nt-170", "split": "validation", "correct": true, "prediction": "Waverley", "answers": ["Waverley"]}
+{"index": 35, "id": "nt-177", "split": "validation", "correct": false, "prediction": "1405", "answers": ["Clavijo"]}
+{"index": 36, "id": "nt-178", "split": "validation", "correct": true, "prediction": "Yukon", "answers": ["Yukon"]}
+{"index": 37, "id": "nt-180", "split": "validation", "correct": true, "prediction": "26 years", "answers": ["26 years"]}
+{"index": 38, "id": "nt-191", "split": "validation", "correct": false, "prediction": "2", "answers": ["4"]}
+{"index": 39, "id": "nt-195", "split": "validation", "correct": false, "prediction": "1. Julie Felix, 2. Chicago, 3. Chicago", "answers": ["Julie Covington", "Pussyfoot", "Andy Gibb"]}
+{"index": 40, "id": "nt-206", "split": "validation", "correct": false, "prediction": "98", "answers": ["40"]}
+{"index": 41, "id": "nt-208", "split": "validation", "correct": false, "prediction": "41", "answers": ["Roch Pinard"]}

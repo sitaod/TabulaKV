@@ -90,6 +90,15 @@ python eval/test_wiki.py \
   --config-file eval/config_eval.yaml
 ```
 
+已提供四份 KV cache 对照实验配置：
+
+```bash
+python eval/test_wiki.py --config-file eval/config_eval_fullkv.yaml
+python eval/test_wiki.py --config-file eval/config_eval_sliding.yaml
+python eval/test_wiki.py --config-file eval/config_eval_snapkv.yaml
+python eval/test_wiki.py --config-file eval/config_eval_rkv.yaml
+```
+
 ### 32B 单卡显存参数
 
 32B 模型在单张 96GB GPU 上运行时，不建议使用 v5 默认的 `max_num_seqs: 128` 和 `gpu_memory_utilization: 0.7`。默认并发会额外分配较大的 q-cache，70% 显存预算也会让 KV cache 可用空间被压到 0。评测 batch size 为 1 时可使用：

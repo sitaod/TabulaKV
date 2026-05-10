@@ -1,0 +1,12 @@
+{"index": 0, "id": "nt-2", "split": "validation", "correct": false, "prediction": "Wolftones", "answers": ["Wolfe Tones"]}
+{"index": 1, "id": "nt-3", "split": "validation", "correct": false, "prediction": "2,000", "answers": ["12,467"]}
+{"index": 2, "id": "nt-8", "split": "validation", "correct": true, "prediction": "32", "answers": ["32"]}
+{"index": 3, "id": "nt-9", "split": "validation", "correct": false, "prediction": "Ardo Kreek is a Middle blocker, so the players who played the same position are Ardo Kreek, Anri Ardo Kreek, and An", "answers": ["Siim Ennemuist", "Andri Aganits"]}
+{"index": 4, "id": "nt-14", "split": "validation", "correct": true, "prediction": "Kim Yu-na", "answers": ["Kim Yu-na"]}
+{"index": 5, "id": "nt-15", "split": "validation", "correct": true, "prediction": "New Delhi, India", "answers": ["New Delhi, India"]}
+{"index": 6, "id": "nt-24", "split": "validation", "correct": true, "prediction": "Sweden", "answers": ["Sweden"]}
+{"index": 7, "id": "nt-29", "split": "validation", "correct": true, "prediction": "1694", "answers": ["1694"]}
+{"index": 8, "id": "nt-34", "split": "validation", "correct": false, "prediction": "1", "answers": ["Iryna Shpylova"]}
+{"index": 9, "id": "nt-40", "split": "validation", "correct": true, "prediction": "2", "answers": ["2"]}
+{"index": 10, "id": "nt-46", "split": "validation", "correct": true, "prediction": "10", "answers": ["10"]}
+{"index": 11, "id": "nt-53", "split": "validation", "correct": false, "prediction": "30", "answers": ["17"]}

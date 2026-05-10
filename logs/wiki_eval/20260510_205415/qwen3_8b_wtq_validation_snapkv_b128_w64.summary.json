@@ -1,0 +1,14 @@
+{
+  "dataset": "stanfordnlp/wikitablequestions",
+  "config": "random-split-1",
+  "split": "validation",
+  "model": "/data/pretrain_models/Qwen3-8B",
+  "total": 200,
+  "correct": 68,
+  "accuracy": 0.34,
+  "log_dir": "/home/stding/projects/TabulaKV/logs/wiki_eval/20260510_205415",
+  "correct_log": "/home/stding/projects/TabulaKV/logs/wiki_eval/20260510_205415/qwen3_8b_wtq_validation_snapkv_b128_w64.correct.jsonl",
+  "qa_log": "/home/stding/projects/TabulaKV/logs/wiki_eval/20260510_205415/qwen3_8b_wtq_validation_snapkv_b128_w64.qa.jsonl",
+  "summary_log": "/home/stding/projects/TabulaKV/logs/wiki_eval/20260510_205415/qwen3_8b_wtq_validation_snapkv_b128_w64.summary.json",
+  "config_file": "eval/config_eval_snapkv.yaml"
+}
