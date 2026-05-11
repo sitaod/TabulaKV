@@ -171,11 +171,54 @@ def write_jsonl(path: Path, records: Iterable[dict[str, Any]]) -> int:
 
 
 def build_prompt(record: dict[str, Any], max_rows: int | None = None) -> str:
+    return build_prompt_with_spans(record, max_rows=max_rows)["prompt"]
+
+
+def build_table_text_with_spans(table: list[list[Any]]) -> dict[str, Any]:
+    parts: list[str] = ["["]
+    header_cell_spans: list[dict[str, int]] = []
+    body_cell_spans: list[dict[str, int]] = []
+
+    for row_index, row in enumerate(table):
+        if row_index > 0:
+            parts.append(", ")
+        parts.append("[")
+        for column_index, cell in enumerate(row):
+            if column_index > 0:
+                parts.append(", ")
+            cell_text = json.dumps(cell, ensure_ascii=False)
+            start = sum(len(part) for part in parts)
+            parts.append(cell_text)
+            end = start + len(cell_text)
+            span = {
+                "start": start,
+                "end": end,
+                "column": column_index,
+            }
+            if row_index == 0:
+                header_cell_spans.append(span)
+            else:
+                span["row"] = row_index - 1
+                body_cell_spans.append(span)
+        parts.append("]")
+    parts.append("]")
+
+    table_text = "".join(parts)
+    return {
+        "text": table_text,
+        "header_cell_spans": header_cell_spans,
+        "body_cell_spans": body_cell_spans,
+    }
+
+
+def build_prompt_with_spans(record: dict[str, Any], max_rows: int | None = None) -> dict[str, Any]:
     table = record["table"]
     if max_rows is not None and max_rows > 0:
         table = table[: max_rows + 1]
-    table_text = json.dumps(table, ensure_ascii=False)
-    return f"""
+    table_info = build_table_text_with_spans(table)
+    table_text = table_info["text"]
+
+    few_shot_prefix = """
 Table:[["Name", "age", "sex"], ["John", 20, "Male"], ["Li", 19, "Female"], ["Zhang", 21, "Male"]]
 Question: Who is male?
 Answer: John, Zhang
@@ -184,13 +227,37 @@ Table: [['Rank', 'Nation', 'Gold', 'Total'], ['1', 'China', '38', '88'], ['2', '
 Question: How many nations have more than 30 gold medals?
 Answer: 2
 ---
-Table: [['Year', 'City', 'Visitors'], ['2021', 'Tokyo', '1500'], ['2022', 'Paris', '2300'], ['2023', 'London', '1900']]
-Question: Which city had the most visitors?
-Answer: Paris
----
-Table:{table_text}
-Question: {record['question']}
-Answer: """
+"""
+    task_prefix = f"Table:{table_text}\nQuestion: "
+    prefix = f"{few_shot_prefix}{task_prefix}"
+
+    question = record["question"]
+    suffix = "\nAnswer: "
+
+    prompt = f"{prefix}{question}{suffix}"
+    question_start = len(prefix)
+    question_end = question_start + len(question)
+    table_start = len(few_shot_prefix) + len("Table:")
+    table_end = table_start + len(table_text)
+
+    def shift_span(span: dict[str, int]) -> dict[str, int]:
+        shifted = dict(span)
+        shifted["start"] += table_start
+        shifted["end"] += table_start
+        return shifted
+
+    return {
+        "prompt": prompt,
+        "question_char_span": (question_start, question_end),
+        "protected_char_span": (0, len(few_shot_prefix)),
+        "table_char_span": (table_start, table_end),
+        "table_header_cell_char_spans": [
+            shift_span(span) for span in table_info["header_cell_spans"]
+        ],
+        "table_body_cell_char_spans": [
+            shift_span(span) for span in table_info["body_cell_spans"]
+        ],
+    }
 
 
 def clean_prediction(text: str) -> str:

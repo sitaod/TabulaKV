@@ -53,11 +53,19 @@ class QueryBlockManager:
 
     def allocate(self, seq: "Sequence"):
         assert not seq.query_block_id >= 0
-        token_ids = seq.token_ids[-seq.query_window_size:]
+        end = seq.prompt_prefill_cursor or seq.num_tokens
+        start = max(0, end - seq.query_window_size)
+        token_ids = seq.token_ids[start:end]
         block_id = self.free_block_ids[0]
         block = self._allocate_block(block_id)
         block.initialize(token_ids)
         seq.query_block_id = block_id
+        seq.last_query_window_index = block.last_token_index
+
+    def append_tokens(self, seq: "Sequence", token_ids: list[int]):
+        block = self.blocks[seq.query_block_id]
+        for token_id in token_ids:
+            block.update(token_id)
         seq.last_query_window_index = block.last_token_index
 
     def deallocate(self, seq: "Sequence"):

@@ -12,6 +12,7 @@ model:
   query_window_size: 64
   # Full KV cache baseline: no compression, layer_budget is ignored.
   cache_compressor: none
+  protected_kv_cache_size: 256
   layer_budget: 128
   steps_between_cache_compressions: 1
 

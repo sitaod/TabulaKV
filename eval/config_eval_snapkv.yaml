@@ -9,9 +9,11 @@ model:
   max_num_batched_tokens: 32768
   gpu_memory_utilization: 0.80
   kvcache_block_size: 1
-  query_window_size: 64
+  query_window_size: 32
   # SnapKV keeps query_window_size recent tokens plus selected history tokens.
   cache_compressor: snapkv
+  # Few-shot example KV is protected and does not consume layer_budget.
+  protected_kv_cache_size: 256
   layer_budget: 128
   steps_between_cache_compressions: 1
 
@@ -42,5 +44,5 @@ prompt:
 
 logging:
   output_dir: logs/wiki_eval
-  run_name: qwen3_8b_wtq_validation_snapkv_b128_w64
+  run_name: qwen3_8b_wtq_validation_snapkv_b128_w32
   use_tqdm: true

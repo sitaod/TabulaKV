@@ -1,18 +1,22 @@
 model:
   # Local Qwen model directory. The v5 Config expects this path to exist.
   path: /data/pretrain_models/Qwen3-8B
-  tensor_parallel_size: 2
+  tensor_parallel_size: 1
   enforce_eager: false
-  # Keep this aligned with generation.batch_size unless you intentionally batch.
+  # Strict-budget *_new compressors currently support one request at a time.
   max_num_seqs: 1
   max_model_len: 32768
   max_num_batched_tokens: 32768
   gpu_memory_utilization: 0.80
   kvcache_block_size: 1
-  query_window_size: 64
-  # Sliding keeps only the most recent layer_budget KV tokens.
-  cache_compressor: sliding
+  query_window_size: 32
+  # Fair sliding baseline: chunked prefill, then keep only the most recent
+  # layer_budget KV tokens outside the protected few-shot prefix.
+  cache_compressor: sliding_new
+  # Few-shot example KV is protected and does not consume layer_budget.
+  protected_kv_cache_size: 256
   layer_budget: 128
+  strict_prefill_chunk_size: 64
   steps_between_cache_compressions: 1
 
 dataset:
@@ -42,5 +46,5 @@ prompt:
 
 logging:
   output_dir: logs/wiki_eval
-  run_name: qwen3_8b_wtq_validation_sliding_b128
+  run_name: qwen3_8b_wtq_validation_sliding_new_b128_c64
   use_tqdm: true

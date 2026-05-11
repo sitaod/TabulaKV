@@ -1,0 +1,4 @@
+{"index": 0, "id": "nt-2", "split": "validation", "correct": true, "prediction": "Wolfe Tones", "answers": ["Wolfe Tones"]}
+{"index": 1, "id": "nt-3", "split": "validation", "correct": false, "prediction": "999", "answers": ["12,467"]}
+{"index": 2, "id": "nt-8", "split": "validation", "correct": false, "prediction": "12", "answers": ["32"]}
+{"index": 3, "id": "nt-9", "split": "validation", "correct": false, "prediction": "0", "answers": ["Siim Ennemuist", "Andri Aganits"]}

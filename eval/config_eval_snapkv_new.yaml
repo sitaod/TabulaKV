@@ -1,0 +1,50 @@
+model:
+  # Local Qwen model directory. The v5 Config expects this path to exist.
+  path: /data/pretrain_models/Qwen3-8B
+  tensor_parallel_size: 1
+  enforce_eager: false
+  # Strict-budget *_new compressors currently support one request at a time.
+  max_num_seqs: 1
+  max_model_len: 32768
+  max_num_batched_tokens: 32768
+  gpu_memory_utilization: 0.80
+  kvcache_block_size: 1
+  query_window_size: 32
+  # snapkv_new performs chunked prefill and keeps persistent KV <= layer_budget.
+  cache_compressor: snapkv_new
+  layer_budget: 128
+  # During prefill, each chunk is processed then immediately compressed.
+  strict_prefill_chunk_size: 64
+  # Few-shot example KV is protected and does not consume layer_budget.
+  protected_kv_cache_size: 256
+  steps_between_cache_compressions: 1
+
+dataset:
+  name: stanfordnlp/wikitablequestions
+  config: random-split-1
+  split: validation
+  revision: 20a01e1d62a85afcfd00e6112ce158d6e93e2f04
+  cache_dir:
+  data_file: datasets/wikitablequestions/random-split-1_validation.jsonl
+  limit: 200
+
+preprocess:
+  output_dir: datasets/wikitablequestions
+  limit:
+
+generation:
+  batch_size: 1
+  max_tokens: 32
+  temperature: -1.0
+  top_k: 1
+  top_p: 1.0
+  min_p: 0.0
+  ignore_eos: false
+
+prompt:
+  max_table_rows: 0
+
+logging:
+  output_dir: logs/wiki_eval
+  run_name: qwen3_8b_wtq_validation_snapkv_new_b128_w32_c64
+  use_tqdm: true

@@ -1,0 +1,50 @@
+model:
+  # Local Qwen model directory. The v5 Config expects this path to exist.
+  path: /data/pretrain_models/Qwen3-8B
+  tensor_parallel_size: 1
+  enforce_eager: true
+  # tabula is a strict-budget compressor and currently supports one request at a time.
+  max_num_seqs: 1
+  max_model_len: 32768
+  max_num_batched_tokens: 32768
+  gpu_memory_utilization: 0.80
+  kvcache_block_size: 1
+  query_window_size: 32
+  question_window_size: 64
+  cache_compressor: tabula
+  layer_budget: 128
+  strict_prefill_chunk_size: 64
+  protected_kv_cache_size: 256
+  # S = lambda * S_cell + (1 - lambda) * S_header
+  tabula_lambda: 0.8
+  steps_between_cache_compressions: 1
+
+dataset:
+  name: stanfordnlp/wikitablequestions
+  config: random-split-1
+  split: validation
+  revision: 20a01e1d62a85afcfd00e6112ce158d6e93e2f04
+  cache_dir:
+  data_file: datasets/wikitablequestions/random-split-1_validation.jsonl
+  limit: 200
+
+preprocess:
+  output_dir: datasets/wikitablequestions
+  limit:
+
+generation:
+  batch_size: 1
+  max_tokens: 32
+  temperature: -1.0
+  top_k: 1
+  top_p: 1.0
+  min_p: 0.0
+  ignore_eos: false
+
+prompt:
+  max_table_rows: 0
+
+logging:
+  output_dir: logs/wiki_eval
+  run_name: qwen3_8b_wtq_validation_tabula_b128_w32_q64_c64_l05
+  use_tqdm: true

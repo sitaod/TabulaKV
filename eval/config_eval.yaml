@@ -10,11 +10,13 @@ model:
   max_num_batched_tokens: 32768
   gpu_memory_utilization: 0.80
   kvcache_block_size: 1
-  query_window_size: 64
+  query_window_size: 32
   # none = full KV cache baseline. Use sliding/snapkv/rkv for compression experiments.
   cache_compressor: rkv
   # For sliding, layer_budget is exactly the number of most recent KV tokens kept.
   # For SnapKV/RKV, layer_budget is total kept tokens, including query_window_size recent tokens.
+  # Few-shot example KV is protected and does not consume layer_budget.
+  protected_kv_cache_size: 256
   layer_budget: 128
   steps_between_cache_compressions: 1
 

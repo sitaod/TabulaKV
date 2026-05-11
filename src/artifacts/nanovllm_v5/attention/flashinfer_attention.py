@@ -324,12 +324,28 @@ class Attention(nn.Module, Artifact):
 
         context = get_context()
         k_cache, v_cache = self.k_cache, self.v_cache
-        if k_cache.numel() and v_cache.numel():
+        if (
+            k_cache.numel()
+            and v_cache.numel()
+            and not getattr(context, "skip_kv_cache_store", False)
+        ):
             store_kvcache(k, v, k_cache, v_cache, context.slot_mapping)
         if context.is_prefill:
-            if context.block_tables is not None:
+            if context.prefill_cache_slot_mapping is not None:
+                k, v = read_kvcache(
+                    k_cache,
+                    v_cache,
+                    context.prefill_cache_slot_mapping,
+                )
+            elif context.block_tables is not None:
                 k, v = k_cache, v_cache
-            store_q_cache(q, self.q_cache, context.query_slot_mapping, context.query_window_pos, is_prefill=True)
+            q_cache = (
+                self.question_q_cache
+                if getattr(context, "store_question_q_cache", False)
+                and getattr(self, "question_q_cache", None) is not None
+                else self.q_cache
+            )
+            store_q_cache(q, q_cache, context.query_slot_mapping, context.query_window_pos, is_prefill=True)
             o = flash_attn_varlen_func(q, k, v,
                                        max_seqlen_q=context.max_seqlen_q, cu_seqlens_q=context.cu_seqlens_q,
                                        max_seqlen_k=context.max_seqlen_k, cu_seqlens_k=context.cu_seqlens_k,

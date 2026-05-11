@@ -58,6 +58,15 @@ class BlockManager(BaseService):
             block.update(token_ids)
             seq.block_table.append(block_id)
 
+    def append_token_blocks(self, seq: "Sequence", token_ids: list[int]):
+        assert self.block_size == 1
+        assert len(self.free_block_ids) >= len(token_ids)
+        for token_id in token_ids:
+            block_id = self.free_block_ids[0]
+            block = self._allocate_block(block_id)
+            block.update([token_id])
+            seq.block_table.append(block_id)
+
     def deallocate(self, seq: "Sequence"):
         for block_id in reversed(seq.block_table):
             self._deallocate_block(block_id)

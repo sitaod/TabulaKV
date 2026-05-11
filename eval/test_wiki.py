@@ -21,6 +21,7 @@ from wiki_table_utils import (
     DEFAULT_REVISION,
     SPLIT_NAMES,
     build_prompt,
+    build_prompt_with_spans,
     clean_prediction,
     get_nested,
     is_correct_prediction,
@@ -75,8 +76,16 @@ def normalize_config(raw_config: dict[str, Any]) -> dict[str, Any]:
             ),
             "kvcache_block_size": int(get_nested(raw_config, "model.kvcache_block_size", 1)),
             "query_window_size": int(get_nested(raw_config, "model.query_window_size", 64)),
+            "question_window_size": int(get_nested(raw_config, "model.question_window_size", 64)),
             "layer_budget": int(get_nested(raw_config, "model.layer_budget", 320)),
             "cache_compressor": get_nested(raw_config, "model.cache_compressor", "none"),
+            "strict_prefill_chunk_size": int(
+                get_nested(raw_config, "model.strict_prefill_chunk_size", 64)
+            ),
+            "protected_kv_cache_size": int(
+                get_nested(raw_config, "model.protected_kv_cache_size", 256)
+            ),
+            "tabula_lambda": float(get_nested(raw_config, "model.tabula_lambda", 0.5)),
             "steps_between_cache_compressions": int(
                 get_nested(raw_config, "model.steps_between_cache_compressions", 1)
             ),
@@ -151,6 +160,73 @@ def make_log_paths(output_dir: Path, run_name: str | None) -> tuple[Path, Path, 
     return run_dir, correct_log, qa_log, summary_log
 
 
+def build_prompt_input(llm, record: dict[str, Any], max_rows: int | None = None) -> dict[str, Any]:
+    prompt_info = build_prompt_with_spans(record, max_rows=max_rows)
+    prompt = prompt_info["prompt"]
+    question_start, question_end = prompt_info["question_char_span"]
+    protected_start, protected_end = prompt_info.get("protected_char_span", (0, 0))
+
+    encoded = llm.tokenizer(
+        prompt,
+        return_offsets_mapping=True,
+        add_special_tokens=True,
+    )
+    full_token_ids = llm.tokenizer.encode(prompt)
+    offsets = encoded["offset_mapping"]
+
+    prefix_token_ids = llm.tokenizer.encode(prompt[:question_start])
+    question_token_ids = llm.tokenizer.encode(prompt[question_start:question_end])
+    protected_token_ids = llm.tokenizer.encode(prompt[protected_start:protected_end])
+    span_start = len(prefix_token_ids)
+    span_end = span_start + len(question_token_ids)
+    protected_span_start = len(llm.tokenizer.encode(prompt[:protected_start]))
+    protected_span_end = protected_span_start + len(protected_token_ids)
+
+    token_count = len(full_token_ids)
+    header_columns = [-1] * token_count
+    header_cell_ids = [-1] * token_count
+    cell_columns = [-1] * token_count
+
+    def mark_tokens(
+        char_spans: list[dict[str, Any]],
+        labels: list[int],
+        cell_id_labels: list[int] | None = None,
+    ) -> None:
+        for cell_id, span in enumerate(char_spans):
+            start = span["start"]
+            end = span["end"]
+            column = int(span["column"])
+            for token_index, (token_start, token_end) in enumerate(offsets):
+                if token_index >= len(labels):
+                    break
+                if token_start == token_end:
+                    continue
+                if token_start < end and token_end > start:
+                    labels[token_index] = column
+                    if cell_id_labels is not None:
+                        cell_id_labels[token_index] = cell_id
+
+    mark_tokens(
+        prompt_info.get("table_header_cell_char_spans", []),
+        header_columns,
+        header_cell_ids,
+    )
+    mark_tokens(prompt_info.get("table_body_cell_char_spans", []), cell_columns)
+
+    return {
+        "prompt": prompt,
+        "token_ids": full_token_ids,
+        "question_token_span": (span_start, span_end),
+        "question_token_ids": question_token_ids,
+        "protected_token_span": (protected_span_start, protected_span_end),
+        "tabula_token_metadata": {
+            "header_columns": header_columns,
+            "header_cell_ids": header_cell_ids,
+            "cell_columns": cell_columns,
+        },
+    }
+
+
 def main() -> None:
     args = parse_args()
     raw_config = load_eval_config(args.config_file)
@@ -172,8 +248,12 @@ def main() -> None:
         gpu_memory_utilization=model_config["gpu_memory_utilization"],
         kvcache_block_size=model_config["kvcache_block_size"],
         query_window_size=model_config["query_window_size"],
+        question_window_size=model_config["question_window_size"],
         layer_budget=model_config["layer_budget"],
         cache_compressor=model_config["cache_compressor"],
+        strict_prefill_chunk_size=model_config["strict_prefill_chunk_size"],
+        protected_kv_cache_size=model_config["protected_kv_cache_size"],
+        tabula_lambda=model_config["tabula_lambda"],
         steps_between_cache_compressions=model_config["steps_between_cache_compressions"],
     )
     generation_config = config["generation"]
@@ -201,7 +281,7 @@ def main() -> None:
         "w", encoding="utf-8"
     ) as qa_f:
         for batch_records in batched(records, max(generation_config["batch_size"], 1)):
-            prompts = [build_prompt(record, max_rows=max_rows) for record in batch_records]
+            prompts = [build_prompt_input(llm, record, max_rows=max_rows) for record in batch_records]
             # print(prompts)
             outputs = llm.generate(prompts, sampling_params, use_tqdm=logging_config["use_tqdm"])
 

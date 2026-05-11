@@ -16,10 +16,14 @@ class Config:
     hf_config: AutoConfig | None = None
     eos: int = -1
     kvcache_block_size: int = 1
-    query_window_size: int = 64
+    query_window_size: int = 32
+    question_window_size: int = 64
     layer_budget: int = 320
     cache_compressor: str = "none"
     num_kvcache_blocks: int = -1
+    strict_prefill_chunk_size: int = 64
+    protected_kv_cache_size: int = 256
+    tabula_lambda: float = 0.5
 
     steps_between_cache_compressions: int = 1
 

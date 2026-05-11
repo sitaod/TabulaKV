@@ -94,9 +94,13 @@ python eval/test_wiki.py \
 
 ```bash
 python eval/test_wiki.py --config-file eval/config_eval_fullkv.yaml
+python eval/test_wiki.py --config-file eval/config_eval_query.yaml
 python eval/test_wiki.py --config-file eval/config_eval_sliding.yaml
 python eval/test_wiki.py --config-file eval/config_eval_snapkv.yaml
 python eval/test_wiki.py --config-file eval/config_eval_rkv.yaml
+python eval/test_wiki.py --config-file eval/config_eval_snapkv_new.yaml
+python eval/test_wiki.py --config-file eval/config_eval_rkv_new.yaml
+python eval/test_wiki.py --config-file eval/config_eval_question_new.yaml
 ```
 
 ### 32B 单卡显存参数
@@ -111,7 +115,7 @@ model:
   max_model_len: 32768
   max_num_batched_tokens: 32768
   gpu_memory_utilization: 0.90
-  query_window_size: 64
+  query_window_size: 32
 ```
 
 如果仍然提示 KV cache 显存不足，优先降低 `max_model_len` 或确认该 GPU 没有其他进程占用；如果要提高 `generation.batch_size`，同步提高 `model.max_num_seqs`。
@@ -134,17 +138,6 @@ preprocess:
   limit: 100
 ```
 
-### Prompt 格式
-
-脚本会生成如下格式：
-
-```text
-The table is arranged as a list of lists, where the first sub-list is the table header and each subsequent sub-list is a tuple in the table.
-Table:
-[["Name", "age", "sex"], ["John", 20, "Male"], ["Li", 19, "Female"], ["Zhang", 21, "Male"]]
-Question: ...
-Directly output the answer without any additional explanation.
-```
 
 默认使用完整表格。调试长表格时可在 `eval/config_eval.yaml` 中限制行数：
 
@@ -182,3 +175,26 @@ model:
 ```
 
 此时 `layer_budget` 表示每次压缩后只保留最近 320 个 KV token。`snapkv` / `rkv` 也可填入 `cache_compressor`，但它们的 `layer_budget` 表示总保留 token 数，其中最近 `query_window_size` 个 token 必保留。
+
+`snapkv_new` / `rkv_new` 是严格 budget 版本。它们会把 prompt prefill 按 `strict_prefill_chunk_size` 分块执行，每个 chunk 结束后立即压缩并释放多余 KV block，保证持久化 KV cache 长度不超过 `layer_budget`。KV pool 会按 `layer_budget + strict_prefill_chunk_size` 个 block 预分配；`strict_prefill_chunk_size` 应不大于 `layer_budget`。旧的 `snapkv` / `rkv` 仍是完整 prefill 后再压缩的版本，不受 `_new` 改动影响。
+
+```yaml
+model:
+  cache_compressor: snapkv_new
+  layer_budget: 128
+  query_window_size: 32
+  strict_prefill_chunk_size: 64
+```
+
+`query` 是一个 query-aware 近似 TableKV 策略，配置示例见 [docs/query_aware_kv.md](docs/query_aware_kv.md)。
+
+`question_new` 是严格 budget 的 question-aware 版本。它保留原 prompt 输入顺序，但会把当前样本的实际 question 额外单独编码一份，用这份 question Q states 在每个 prefill chunk 后对“上一轮压缩 cache + 当前 chunk”做 cross-attention 打分；其中最近 `query_window_size` 个 token 必保留，剩余 `layer_budget - query_window_size` 个位置从历史候选里按分数选择。
+
+```yaml
+model:
+  cache_compressor: question_new
+  layer_budget: 128
+  query_window_size: 32
+  question_window_size: 64
+  strict_prefill_chunk_size: 64
+```
