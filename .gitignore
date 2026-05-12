@@ -184,6 +184,12 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+# Project outputs
+logs/
+*.summary.json
+*.qa.jsonl
+*.correct.jsonl
+
 # PyPI configuration file
 .pypirc
 

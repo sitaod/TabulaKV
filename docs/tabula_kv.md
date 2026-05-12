@@ -13,8 +13,8 @@
 
 ## 相关文件
 
-- `src/artifacts/nanovllm_v5/cache_mngr/tabula.py`: 压缩器主体。
-- `src/artifacts/nanovllm_v5/cache_mngr/layerwise.py`: 在压缩前构造当前 KV 对应的表格 metadata，并在压缩后同步 metadata。
+- `src/artifacts/artifact_infer/cache_mngr/tabula.py`: 压缩器主体。
+- `src/artifacts/artifact_infer/cache_mngr/layerwise.py`: 在压缩前构造当前 KV 对应的表格 metadata，并在压缩后同步 metadata。
 - `eval/wiki_table_utils.py`: 构造 list-of-lists prompt，并记录真实表格 header/body cell 的字符 span。
 - `eval/test_wiki.py`: 用 tokenizer offset mapping 把字符 span 转成 token-level metadata。
 - `eval/config_eval_tabula.yaml`: 默认评测配置。
@@ -121,7 +121,7 @@ CUDA_VISIBLE_DEVICES=2 python eval/test_wiki.py --config-file eval/config_eval_t
 
 这些方法都不先构建完整 prompt KV cache，而是在 prefill 期间分块压缩。非 strict 的 `sliding`、`rkv`、`snapkv` 是 full-prefill 后压缩，不应直接和 `tabula` 比较。
 
-为了减少 CUDA graph 带来的干扰，当前建议所有 strict-budget 实验统一使用：
+当前默认配置中，只有 `tabula` 使用 eager 模式，其他 strict-budget 方法默认保留 CUDA graph 路径以加快评测。调试新压缩器或定位数值问题时，可以临时打开：
 
 ```yaml
 enforce_eager: true

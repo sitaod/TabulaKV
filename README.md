@@ -1,200 +1,153 @@
 # TabulaKV
 
-TabulaKV 当前保留的是 `nanovllm_v5` 实验版，主要用于基于 Qwen 的表格问答和后续 KV Cache 压缩研究。
+TabulaKV is a research prototype for KV Cache compression in table question answering. It builds on the Artifact-Infer runtime and adds a Cache Manager, compressor registry, WikiTableQuestions evaluation scripts, and several KV Cache compression baselines.
 
-## 环境
+The main research question is whether table structure can help decide which KV tokens should survive under a small cache budget. In addition to standard compression baselines, this repository includes TabulaKV, a question-aware and table-aware compressor that uses table header and column metadata during KV selection.
+
+## Features
+
+- Artifact-Infer based Qwen inference runtime.
+- Unified KV Cache compressor interface.
+- Full KV, RKV, SnapKV, sliding-window, query-aware, question-aware, and TabulaKV compressors.
+- Strict-budget chunked prefill variants for fair small-budget comparison.
+- WikiTableQuestions preprocessing and evaluation pipeline.
+- Per-sample QA, correctness, and summary logging.
+
+## Repository Layout
+
+```text
+src/services/artifact_infer/          Artifact-Infer runtime and model runner
+src/artifacts/artifact_infer/         attention, block manager, and cache manager code
+src/artifacts/artifact_infer/cache_mngr/
+                                      KV Cache compression algorithms
+eval/                                 WikiTableQuestions preprocessing and evaluation
+docs/                                 Cache manager, question-aware, and TabulaKV notes
+datasets/wikitablequestions/          prepared WTQ JSONL files used by the configs
+```
+
+## Installation
+
+Create a Python environment, then install the core requirements:
 
 ```bash
-conda activate tabulakv
 pip install -r requirements.txt
+```
+
+FlashAttention is installed separately because its build step imports PyTorch:
+
+```bash
 pip install -r requirements-flash-attn.txt --no-build-isolation
 ```
 
-当前依赖按本机环境整理：Ubuntu 22.04、x86_64、Python 3.10.20、6x NVIDIA RTX PRO 6000 Blackwell、Driver 575.57.08、CUDA 12.9。PyTorch 使用官方 CUDA 12.9 wheel channel `cu129`。
-
-`flash-attn` 需要单独第二步安装：它的构建脚本会在 setup 阶段 import `torch`，如果直接放在 `requirements.txt` 里，pip 的 build isolation 会创建一个看不到 torch 的临时构建环境，从而报 `ModuleNotFoundError: No module named 'torch'`。因此先安装 `torch==2.8.0`、`triton==3.4.0`、`flashinfer-python==0.6.7` 等基础依赖，再用 `--no-build-isolation` 让 `flash-attn==2.8.3` 复用当前 conda 环境里的 torch/CUDA 配置。
-
-`huggingface-hub` 锁定为 `0.35.3`，因为 `transformers==4.57.0` 要求 `huggingface-hub>=0.34.0,<1.0`。如果环境里已有 `huggingface-hub 1.x`，请让 `pip install -r requirements.txt` 将它降级到该兼容版本。
-
-如果 `flash-attn` 需要从源码编译，请确认当前环境能找到 CUDA 12.9 的 `nvcc`。Blackwell GPU 通常需要生成 `sm_120`/compute capability 12.0 代码；如果编译脚本没有自动识别，可临时设置：
-
-```bash
-TORCH_CUDA_ARCH_LIST="12.0" pip install -r requirements-flash-attn.txt --no-build-isolation
-```
-
-安装后可做一次基础检查：
-
-```bash
-python -c "import torch; print(torch.__version__, torch.version.cuda)"
-python -c "import flash_attn, flashinfer; print('flash-attn/flashinfer ok')"
-flashinfer show-config
-```
-
-`flashinfer-python` 会在首次使用时编译或下载部分内核；如需减少首次运行等待或离线运行，可额外安装 FlashInfer 的预编译内核包：
-
-```bash
-pip install flashinfer-cubin
-pip install flashinfer-jit-cache --index-url https://flashinfer.ai/whl/cu129
-```
-
-`sgl-kernel` 只用于非贪心采样的快速 kernel，当前 WikiTableQuestions 默认配置是贪心解码，不需要它。RTX PRO 6000 Blackwell + `torch==2.8.0`/`cu129` 下 `sgl-kernel==0.3.21` 可能在 import 时出现 PyTorch C++ 符号不匹配；v5 采样器已经内置 PyTorch fallback。如果后续确认某个 `sgl-kernel` 版本和当前 torch 兼容，可按需安装：
+Optional non-greedy sampling kernels can be installed with:
 
 ```bash
 pip install -r requirements-sgl-kernel.txt
 ```
 
-## WikiTableQuestions 评测
+The project was developed with Python 3.10, PyTorch 2.8, CUDA 12.9, FlashInfer, and Qwen3 local checkpoints. Other CUDA/PyTorch combinations may require adjusting the FlashAttention and FlashInfer wheels.
 
-评测脚本位于 `eval/test_wiki.py`，预处理脚本位于 `eval/preprocess_wikitablequestions.py`。
+## Data
 
-数据集使用 Hugging Face 上的 `stanfordnlp/wikitablequestions`。预处理会把每个表格转成 list of lists，其中第一个子列表是表头，后续子列表是表格行。
+The evaluation code targets the Hugging Face dataset `stanfordnlp/wikitablequestions`, config `random-split-1`.
 
-所有评测参数默认从 [eval/config_eval.yaml](eval/config_eval.yaml) 读取，包括模型路径、v5 引擎显存参数、数据 split、预处理输出目录、生成参数和日志目录。修改模型目录时，编辑：
+The default configs point to a fixed 500-example test subset:
+
+```text
+datasets/wikitablequestions/random-split-1_test_seed42_sample500.jsonl
+```
+
+This subset was generated from the WTQ test split by shuffling with Python `random.Random(42)` and taking the first 500 records. It keeps experiments fast and reproducible.
+
+To regenerate preprocessed JSONL files:
+
+```bash
+python eval/preprocess_wikitablequestions.py --config-file eval/config_eval.yaml
+```
+
+## Running Evaluation
+
+Set `model.path` in the YAML config to a local Qwen checkpoint:
 
 ```yaml
 model:
-  path: qwen-8B
+  path: /path/to/Qwen3-8B
 ```
 
-### 1. 预处理数据
-
-```bash
-python eval/preprocess_wikitablequestions.py
-```
-
-输出示例：
-
-```text
-datasets/wikitablequestions/random-split-1_validation.jsonl
-```
-
-如需使用另一份配置文件：
-
-```bash
-python eval/preprocess_wikitablequestions.py \
-  --config-file eval/config_eval.yaml
-```
-
-### 2. 运行评测
-
-模型、数据、batch size、输出 token 数、日志名都从 `eval/config_eval.yaml` 读取。`model.path` 需要是本地 Qwen 模型目录。
-
-```bash
-python eval/test_wiki.py
-```
-
-如需使用另一份配置文件：
-
-```bash
-python eval/test_wiki.py \
-  --config-file eval/config_eval.yaml
-```
-
-已提供四份 KV cache 对照实验配置：
+Run the full KV baseline:
 
 ```bash
 python eval/test_wiki.py --config-file eval/config_eval_fullkv.yaml
-python eval/test_wiki.py --config-file eval/config_eval_query.yaml
-python eval/test_wiki.py --config-file eval/config_eval_sliding.yaml
-python eval/test_wiki.py --config-file eval/config_eval_snapkv.yaml
-python eval/test_wiki.py --config-file eval/config_eval_rkv.yaml
-python eval/test_wiki.py --config-file eval/config_eval_snapkv_new.yaml
+```
+
+Run compression methods:
+
+```bash
 python eval/test_wiki.py --config-file eval/config_eval_rkv_new.yaml
+python eval/test_wiki.py --config-file eval/config_eval_snapkv_new.yaml
 python eval/test_wiki.py --config-file eval/config_eval_question_new.yaml
+python eval/test_wiki.py --config-file eval/config_eval_sliding.yaml
+python eval/test_wiki.py --config-file eval/config_eval_tabula.yaml
 ```
 
-### 32B 单卡显存参数
-
-32B 模型在单张 96GB GPU 上运行时，不建议使用 v5 默认的 `max_num_seqs: 128` 和 `gpu_memory_utilization: 0.7`。默认并发会额外分配较大的 q-cache，70% 显存预算也会让 KV cache 可用空间被压到 0。评测 batch size 为 1 时可使用：
+The strict-budget configs use:
 
 ```yaml
 model:
-  path: /data/pretrain_models/Qwen3-32B
-  tensor_parallel_size: 1
+  layer_budget: 128
+  query_window_size: 32
+  strict_prefill_chunk_size: 64
+  protected_kv_cache_size: 256
+```
+
+The few-shot prefix is protected and does not consume the current sample's compression budget.
+
+## Compression Methods
+
+`none` keeps the full KV Cache.
+
+`sliding_new` performs strict-budget chunked prefill and keeps the most recent KV tokens.
+
+`rkv_new` and `snapkv_new` are strict-budget versions of RKV and SnapKV.
+
+`question_new` separately encodes the real question and uses question-to-prompt cross-attention to select KV tokens during chunked prefill.
+
+`tabula` extends question-aware compression with table structure. It maps header and body cells to token-level metadata, guarantees at least one retained token per header cell, and adjusts body-cell scores with the attention score of the corresponding column header:
+
+```text
+S = lambda * S_cell + (1 - lambda) * S_header
+```
+
+`model.tabula_lambda` controls this balance.
+
+## Logs
+
+Evaluation outputs are written to `logs/wiki_eval/`:
+
+```text
+*.correct.jsonl   per-example correctness and predictions
+*.qa.jsonl        question, raw output, cleaned prediction, answers
+*.summary.json    aggregate accuracy and output paths
+```
+
+Logs are generated artifacts and are ignored by git.
+
+## Documentation
+
+- `docs/cache_manager_usage.md`: Cache Manager and compressor interface.
+- `docs/question_aware_kv.md`: question-aware compression notes.
+- `docs/tabula_kv.md`: TabulaKV algorithm details.
+
+## Notes
+
+Current compression experiments are designed for single-request evaluation:
+
+```yaml
+generation:
+  batch_size: 1
+model:
   max_num_seqs: 1
-  max_model_len: 32768
-  max_num_batched_tokens: 32768
-  gpu_memory_utilization: 0.90
-  query_window_size: 32
+  kvcache_block_size: 1
 ```
 
-如果仍然提示 KV cache 显存不足，优先降低 `max_model_len` 或确认该 GPU 没有其他进程占用；如果要提高 `generation.batch_size`，同步提高 `model.max_num_seqs`。
-
-### 限制评测条数
-
-`test_wiki.py` 支持通过 `eval/config_eval.yaml` 限制评测样本数。把 `dataset.limit` 设为整数即可只评测前 N 条；保留为空表示评测全部样本。
-
-```yaml
-dataset:
-  limit: 100
-```
-
-如果 `dataset.data_file` 指向已经预处理好的 JSONL，脚本会读取该文件后截取前 N 条；如果不设置 `data_file`，则会从 Hugging Face 数据集加载后截取前 N 条。
-
-预处理阶段也可以单独限制输出条数，用于快速生成小规模调试集：
-
-```yaml
-preprocess:
-  limit: 100
-```
-
-
-默认使用完整表格。调试长表格时可在 `eval/config_eval.yaml` 中限制行数：
-
-```yaml
-prompt:
-  max_table_rows: 20
-```
-
-### 输出日志
-
-默认日志目录是 `logs/wiki_eval/`。每次运行会在该目录下新建当前时间文件夹，例如 `logs/wiki_eval/20260509_153012/`。如果 `logging.run_name` 留空，脚本会按 `model.path` 和 `dataset.split` 自动生成日志名前缀，例如 `/data/pretrain_models/Qwen3-8B` 会在时间文件夹中生成 `qwen3_8b_wtq_validation.*`。如果配置文件中显式设置 `logging.run_name: qwen8b_wtq_val`，则会生成：
-
-- `qwen8b_wtq_val.correct.jsonl`: 每条样本是否正确、预测答案、标准答案。
-- `qwen8b_wtq_val.qa.jsonl`: 问题、原始输出、清洗后的预测、标准答案。
-- `qwen8b_wtq_val.summary.json`: 总样本数、正确数、accuracy 和日志路径。
-
-当前准确率判断使用轻量字符串归一化匹配；`qa.jsonl` 保留了问题、输出、标准答案，便于后续接入更鲁棒的答案判断方案。
-
-### 当前设置
-
-`test_wiki.py` 默认使用 full KV cache baseline。配置文件中：
-
-```yaml
-model:
-  cache_compressor: none
-```
-
-表示不调用 `compress()`，不会启用任何 KV Cache 压缩方法。做 sliding-window 压缩实验时改为：
-
-```yaml
-model:
-  cache_compressor: sliding
-  layer_budget: 320
-  steps_between_cache_compressions: 1
-```
-
-此时 `layer_budget` 表示每次压缩后只保留最近 320 个 KV token。`snapkv` / `rkv` 也可填入 `cache_compressor`，但它们的 `layer_budget` 表示总保留 token 数，其中最近 `query_window_size` 个 token 必保留。
-
-`snapkv_new` / `rkv_new` 是严格 budget 版本。它们会把 prompt prefill 按 `strict_prefill_chunk_size` 分块执行，每个 chunk 结束后立即压缩并释放多余 KV block，保证持久化 KV cache 长度不超过 `layer_budget`。KV pool 会按 `layer_budget + strict_prefill_chunk_size` 个 block 预分配；`strict_prefill_chunk_size` 应不大于 `layer_budget`。旧的 `snapkv` / `rkv` 仍是完整 prefill 后再压缩的版本，不受 `_new` 改动影响。
-
-```yaml
-model:
-  cache_compressor: snapkv_new
-  layer_budget: 128
-  query_window_size: 32
-  strict_prefill_chunk_size: 64
-```
-
-`query` 是一个 query-aware 近似 TableKV 策略，配置示例见 [docs/query_aware_kv.md](docs/query_aware_kv.md)。
-
-`question_new` 是严格 budget 的 question-aware 版本。它保留原 prompt 输入顺序，但会把当前样本的实际 question 额外单独编码一份，用这份 question Q states 在每个 prefill chunk 后对“上一轮压缩 cache + 当前 chunk”做 cross-attention 打分；其中最近 `query_window_size` 个 token 必保留，剩余 `layer_budget - query_window_size` 个位置从历史候选里按分数选择。
-
-```yaml
-model:
-  cache_compressor: question_new
-  layer_budget: 128
-  query_window_size: 32
-  question_window_size: 64
-  strict_prefill_chunk_size: 64
-```
+TabulaKV uses `enforce_eager: true` by default because its current implementation is easier to debug in eager mode. Other configs keep `enforce_eager: false` for faster evaluation.

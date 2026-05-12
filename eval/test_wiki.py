@@ -45,7 +45,7 @@ def resolve_repo_path(path: str | Path | None) -> Path | None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Evaluate TabulaKV/nanovllm_v5 on WikiTableQuestions."
+        description="Evaluate TabulaKV/artifact_infer on WikiTableQuestions."
     )
     parser.add_argument(
         "--config-file",
@@ -235,7 +235,7 @@ def main() -> None:
     if not records:
         raise ValueError("No WikiTableQuestions records to evaluate.")
 
-    from src.services.nanovllm_v5 import LLM, SamplingParams
+    from src.services.artifact_infer import LLM, SamplingParams
 
     model_config = config["model"]
     llm = LLM(

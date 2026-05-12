@@ -1,5 +1,5 @@
 model:
-  # Local Qwen model directory. The v5 Config expects this path to exist.
+  # Local Qwen model directory. Artifact-Infer expects this path to exist.
   path: /data/pretrain_models/Qwen3-8B
   tensor_parallel_size: 1
   enforce_eager: false
@@ -27,8 +27,6 @@ dataset:
   cache_dir:
   data_file: datasets/wikitablequestions/random-split-1_test_seed42_sample500.jsonl
   limit:
-  shuffle: false
-  seed: 42
 
 preprocess:
   output_dir: datasets/wikitablequestions

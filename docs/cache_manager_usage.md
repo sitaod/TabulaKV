@@ -1,19 +1,19 @@
 # Cache Manager 使用说明
 
-本文对应当前保留的 `nanovllm_v5` 版本，主要说明 KV Cache 压缩研究中会接触到的 Cache Manager、压缩器和调度元数据流程。
+本文对应当前保留的 `artifact_infer` 版本，主要说明 KV Cache 压缩研究中会接触到的 Cache Manager、压缩器和调度元数据流程。
 
 ## 代码位置
 
-- `src/artifacts/nanovllm_v5/cache_mngr/layerwise.py`: Cache Manager 主体。
-- `src/artifacts/nanovllm_v5/cache_mngr/snapKV.py`: SnapKV 压缩器。
-- `src/artifacts/nanovllm_v5/cache_mngr/snapKV_new.py`: strict-budget SnapKV 压缩器入口。
-- `src/artifacts/nanovllm_v5/cache_mngr/RKV.py`: RKV 压缩器。
-- `src/artifacts/nanovllm_v5/cache_mngr/RKV_new.py`: strict-budget RKV 压缩器入口。
-- `src/artifacts/nanovllm_v5/cache_mngr/sliding.py`: 非 strict sliding-window 压缩器。
-- `src/artifacts/nanovllm_v5/cache_mngr/sliding_new.py`: strict-budget sliding-window 压缩器入口。
-- `src/artifacts/nanovllm_v5/cache_mngr/tabula.py`: strict-budget table-aware question-aware 压缩器。
-- `src/artifacts/nanovllm_v5/attention/flashinfer_attention.py`: 读写 KV/Q cache 的 Triton kernel 和 FlashInfer decode metadata。
-- `src/services/nanovllm_v5/model_runner/model_runner.py`: 初始化 compressor 和 CacheManager，并在 prefill/decode 阶段调用 metadata 更新。
+- `src/artifacts/artifact_infer/cache_mngr/layerwise.py`: Cache Manager 主体。
+- `src/artifacts/artifact_infer/cache_mngr/snapKV.py`: SnapKV 压缩器。
+- `src/artifacts/artifact_infer/cache_mngr/snapKV_new.py`: strict-budget SnapKV 压缩器入口。
+- `src/artifacts/artifact_infer/cache_mngr/RKV.py`: RKV 压缩器。
+- `src/artifacts/artifact_infer/cache_mngr/RKV_new.py`: strict-budget RKV 压缩器入口。
+- `src/artifacts/artifact_infer/cache_mngr/sliding.py`: 非 strict sliding-window 压缩器。
+- `src/artifacts/artifact_infer/cache_mngr/sliding_new.py`: strict-budget sliding-window 压缩器入口。
+- `src/artifacts/artifact_infer/cache_mngr/tabula.py`: strict-budget table-aware question-aware 压缩器。
+- `src/artifacts/artifact_infer/attention/flashinfer_attention.py`: 读写 KV/Q cache 的 Triton kernel 和 FlashInfer decode metadata。
+- `src/services/artifact_infer/model_runner/model_runner.py`: 初始化 compressor 和 CacheManager，并在 prefill/decode 阶段调用 metadata 更新。
 
 ## 运行时关系
 
@@ -33,9 +33,9 @@ self.cache_mngr = CacheManager(self.attention_backend, config, self.compressor)
 
 ## 关键配置
 
-这些配置在 `src/services/nanovllm_v5/config.py`：
+这些配置在 `src/services/artifact_infer/config.py`：
 
-- `kvcache_block_size`: 当前 v5 只支持 `1`。不要在压缩实验前改大。
+- `kvcache_block_size`: 当前实现只支持 `1`。不要在压缩实验前改大。
 - `query_window_size`: 最近 KV token 保留窗口长度，也是普通 `q_cache` 的窗口长度，默认 `32`。
 - `question_window_size`: `question_new` 额外保存的独立 question Q cache 长度，默认 `64`。
 - `layer_budget`: 压缩后的 KV token budget，默认 `320`。
@@ -53,7 +53,7 @@ self.cache_mngr = CacheManager(self.attention_backend, config, self.compressor)
 - `snapkv` / `rkv`: `layer_budget` 是 protected prefix 之外最终保留的总 KV token 数，其中最近 `query_window_size` 个 token 必保留，剩余 `layer_budget - query_window_size` 个 token 从历史 KV 中按算法选择。
 - `snapkv_new` / `rkv_new`: `layer_budget` 是 protected prefix 之外的持久化 KV cache 硬上限。prefill 会按 `strict_prefill_chunk_size` 分块，当前 chunk 结束后立即把 protected prefix 之外的“上一轮压缩结果 + 当前 chunk”压回 `layer_budget` 以内，其中最近 `query_window_size` 个 token 必保留。块内计算的瞬时工作集最多是 `protected_kv_cache_size + layer_budget + strict_prefill_chunk_size`，但不会先建立完整 prompt KV cache。
 - `question_new`: `layer_budget` 是 protected prefix 之外每轮压缩后保留的 KV token 数。它会额外把 prompt 中的实际 question 单独编码到 `question_q_cache`，每个 chunk 后用 question Q states 对 protected prefix 之外的“上一轮压缩 cache + 当前 chunk”做 cross-attention；最近 `query_window_size` 个 token 必保留，剩余 `layer_budget - query_window_size` 个位置从历史候选中按分数选择。
-- `tabula`: 基于 `question_new` 的 strict-budget 路径。它额外接收当前表格 token 的列属性 metadata，强制保留实际表头 KV token，表头 token 占用 `layer_budget`；对 body cell token，先用 question attention 得到 `S_cell`，再融合对应列表头的 `S_header`。最后在 protected prefix 之外按 budget 保留“表头 + 最近窗口 + top score token”。
+- `tabula`: 基于 `question_new` 的 strict-budget 路径。它额外接收当前表格 token 的列属性 metadata。表头不会完整保留，但每个 header cell 至少保留一个高分 token，且这些 token 占用 `layer_budget`；对 body cell token，先用 question attention 得到 `S_cell`，再融合对应列表头的 `S_header`。最后在 protected prefix 之外按 budget 保留“header-cell 保底 token + 最近窗口 + top score token”。
 - `none`: 不调用压缩，`layer_budget` 不影响 KV 保留长度。
 
 RKV 的 similarity 计算需要额外临时显存，建议优先使用 `enforce_eager: true` 并降低 `gpu_memory_utilization`，给压缩计算留出余量。
@@ -102,7 +102,7 @@ model:
 如果要写死算法，也可以在 `ModelRunner.__init__` 中替换 compressor：
 
 ```python
-from src.artifacts.nanovllm_v5.cache_mngr.RKV import RKV
+from src.artifacts.artifact_infer.cache_mngr.RKV import RKV
 
 self.compressor = RKV(
     window_size=config.query_window_size,
@@ -112,7 +112,7 @@ self.compressor = RKV(
 
 ## 如何启用压缩
 
-当前自动压缩逻辑在 `src/services/nanovllm_v5/engine/llm_engine.py` 中由 `cache_compressor` 控制：
+当前自动压缩逻辑在 `src/services/artifact_infer/engine/llm_engine.py` 中由 `cache_compressor` 控制：
 
 ```python
 if (
@@ -153,14 +153,14 @@ llm.model_runner.call("compress")
 ## 当前限制
 
 - `read_and_store_cache()` 当前有 `assert len(self.cu_seqs) == 1`，压缩路径只支持单请求。
-- v5 的 block manager 明确不支持 prefix caching，并且只支持 `block_size == 1`。
+- 当前 block manager 明确不支持 prefix caching，并且只支持 `block_size == 1`。
 - 压缩所有层时会先使用同一份原始 `seq.block_table` 读 full KV，所有层写回完成后再统一截断 `seq.block_table` 并释放被淘汰的 block。
 - layer-wise metadata 的接口已经留下位置，但当前实现使用的是统一 `seq.block_table`，尚未真正维护每层独立 block table。
 - CUDA graph 路径对 batch size 和预分配 buffer 更敏感。新增压缩策略时，建议先验证 eager decode，再验证 graph replay。
 
 ## 新增压缩算法建议流程
 
-1. 在 `src/artifacts/nanovllm_v5/cache_mngr/` 下新增算法文件。
+1. 在 `src/artifacts/artifact_infer/cache_mngr/` 下新增算法文件。
 2. 实现 `update_kv(query_states, key_states, value_states)`。
 3. 在 `ModelRunner.__init__` 中实例化新 compressor。
 4. 用 `enforce_eager=True` 跑单请求短生成，检查压缩前后 `kv_len` 和输出。

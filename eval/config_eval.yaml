@@ -1,9 +1,9 @@
 model:
-  # Local Qwen model directory. The v5 Config expects this path to exist.
+  # Local Qwen model directory. Artifact-Infer expects this path to exist.
   path: /data/pretrain_models/Qwen3-8B
   tensor_parallel_size: 1
   enforce_eager: false
-  # 32B single-GPU runs need a tighter concurrency budget than v5 defaults.
+  # 32B single-GPU runs need a tighter concurrency budget than the default runtime settings.
   # Keep this aligned with generation.batch_size unless you intentionally batch.
   max_num_seqs: 1
   max_model_len: 32768
@@ -30,8 +30,6 @@ dataset:
   data_file: datasets/wikitablequestions/random-split-1_test_seed42_sample500.jsonl
   # Set to a small integer for smoke tests; null means all records.
   limit:
-  shuffle: false
-  seed: 42
 
 preprocess:
   output_dir: datasets/wikitablequestions
