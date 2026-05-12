@@ -1,7 +1,7 @@
 model:
   # Local Qwen model directory. The v5 Config expects this path to exist.
   path: /data/pretrain_models/Qwen3-8B
-  tensor_parallel_size: 2
+  tensor_parallel_size: 1
   enforce_eager: false
   # 32B single-GPU runs need a tighter concurrency budget than v5 defaults.
   # Keep this aligned with generation.batch_size unless you intentionally batch.
@@ -23,13 +23,15 @@ model:
 dataset:
   name: stanfordnlp/wikitablequestions
   config: random-split-1
-  split: validation
+  split: test
   revision: 20a01e1d62a85afcfd00e6112ce158d6e93e2f04
   cache_dir:
   # If set, test_wiki.py reads this JSONL instead of downloading from HF.
-  data_file: datasets/wikitablequestions/random-split-1_validation.jsonl
+  data_file: datasets/wikitablequestions/random-split-1_test_seed42_sample500.jsonl
   # Set to a small integer for smoke tests; null means all records.
-  limit: 200
+  limit:
+  shuffle: false
+  seed: 42
 
 preprocess:
   output_dir: datasets/wikitablequestions
@@ -53,6 +55,6 @@ prompt:
 logging:
   output_dir: logs/wiki_eval
   # Leave empty to auto-generate from model.path and dataset.split, e.g.
-  # qwen3_8b_wtq_validation or qwen3_32b_wtq_validation.
+  # qwen3_8b_wtq_test or qwen3_32b_wtq_test.
   run_name:
   use_tqdm: true
