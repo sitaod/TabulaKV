@@ -2,7 +2,7 @@
 
 TabulaKV 是一个面向表格问答任务的 KV Cache 压缩研究原型。项目基于 Artifact-Infer 推理框架，加入了 Cache Manager、压缩器注册机制、WikiTableQuestions 评测流程，以及多种 KV Cache 压缩方法。
 
-本项目关注的问题是：在 KV Cache budget 很小的情况下，表格结构信息能否帮助模型更合理地保留关键 KV token。除了常见压缩基线外，仓库还实现了 TabulaKV，一种 question-aware 与 table-aware 结合的压缩方法，它会在 KV 选择过程中利用表头和列属性信息。
+除了常见压缩基线外，仓库还实现了 TabulaKV，一种 question-aware 与 table-aware 结合的压缩方法，它会在 KV 选择过程中利用表头和列属性信息。
 
 ## 功能特点
 
