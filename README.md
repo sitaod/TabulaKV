@@ -2,7 +2,7 @@
 
 TabulaKV is a research prototype for KV Cache compression in table question answering. It builds on the Artifact-Infer runtime and adds a Cache Manager, compressor registry, WikiTableQuestions evaluation scripts, and several KV Cache compression baselines.
 
-The main research question is whether table structure can help decide which KV tokens should survive under a small cache budget. In addition to standard compression baselines, this repository includes TabulaKV, a question-aware and table-aware compressor that uses table header and column metadata during KV selection.
+In addition to standard compression baselines, this repository includes TabulaKV, a question-aware and table-aware compressor that uses table header and column metadata during KV selection.
 
 ## Features
 
